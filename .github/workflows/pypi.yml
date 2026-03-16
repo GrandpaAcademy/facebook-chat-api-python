@@ -1,0 +1,38 @@
+name: PyPI Publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build-n-publish:
+    name: Build and publish Python 🐍 distributions 📦 to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Mandatory for Trusted Publishers
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Build dist
+        run: uv build
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No token needed if using Trusted Publishers on PyPI
+        # If not using Trusted Publishers, you can add:
+        # with:
+        #   password: ${{ secrets.PYPI_API_TOKEN }}

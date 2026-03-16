@@ -14,7 +14,7 @@ A high-performance, asynchronous, and modular Python port of the Facebook Messen
 Install the required dependencies:
 
 ```bash
-pip install httpx beautifulsoup4 paho-mqtt npmlog
+pip install fca-python
 ```
 
 ## 🔐 Authentication
