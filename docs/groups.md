@@ -36,4 +36,4 @@ await api["removeUserFromGroup"]("USER_ID", "THREAD_ID")
 # Promote to Admin
 await api["changeAdminStatus"]("USER_ID", True, "THREAD_ID")
 ```
-筋
+

@@ -40,4 +40,4 @@ session = api.getSession()
 with open("appstate.json", "w") as f:
     json.dump(session, f)
 ```
-筋
+

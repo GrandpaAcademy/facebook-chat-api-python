@@ -49,4 +49,4 @@ await api["unsendMessage"]("MESSAGE_ID")
 # Delete (removes only for you)
 await api["deleteMessage"]("MESSAGE_ID")
 ```
-筋
+
