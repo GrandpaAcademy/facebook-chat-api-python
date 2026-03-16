@@ -167,7 +167,7 @@ class MQTTClient:
                     if parsed_event:
                         print(f"✅ Parsed Event: {parsed_event.get('type')}")
                         asyncio.run_coroutine_threadsafe(
-                            self.global_callback(None, parsed_event), self.loop
+                            self.global_callback(parsed_event), self.loop
                         )
 
             elif topic in ["/thread_typing", "/orca_typing_notifications"]:
@@ -180,7 +180,7 @@ class MQTTClient:
                     ),
                 }
                 asyncio.run_coroutine_threadsafe(
-                    self.global_callback(None, typ),
+                    self.global_callback(typ),
                     self.loop
                 )
 
@@ -193,7 +193,7 @@ class MQTTClient:
                         "statuses": item["p"],
                     }
                     asyncio.run_coroutine_threadsafe(
-                        self.global_callback(None, presence),
+                        self.global_callback(presence),
                         self.loop
                     )
 
