@@ -19,11 +19,11 @@ pip install httpx beautifulsoup4 paho-mqtt npmlog
 
 ## 🔐 Authentication
 
-The SDK supports both credential-based login and session-based (appstate) login.
+The SDK supports both credential-based login and session-based (appstate) login via a simplified facade.
 
 ### Credential Login
 ```python
-from src.core.core import login
+from fca import login
 
 async def main():
     api = await login(email="your_email", password="your_password")
@@ -33,7 +33,7 @@ async def main():
 ### Appstate (Session) Login
 Recommended to avoid frequent logins and checkpoints.
 ```python
-from src.core.core import login
+from fca import login
 import json
 
 async def main():
