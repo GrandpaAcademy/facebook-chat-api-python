@@ -111,7 +111,7 @@ async def build_api(
             region_list = parse_qs(parsed_url.query).get("region")
             if region_list:
                 region = region_list[0].upper()
-        except:
+        except Exception:
             pass
 
     ctx = Context(user_id, client_id, global_options, client)
@@ -132,7 +132,7 @@ async def build_api(
             # Actually, standard FCA fetches it from a separate doc_id if needed.
             # Let's assume for now irisSeqID was there or we'll fetch it explicitly if needed.
             pass
-        except:
+        except Exception:
             pass
 
     api = get_api(ctx)

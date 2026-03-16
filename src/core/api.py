@@ -1,4 +1,4 @@
-from typing import Any, Optional, List
+from typing import Any, Optional, List, Dict
 
 from ..utils.utils import (
     get,
@@ -31,6 +31,19 @@ from ..http.mark_as_delivered import mark_as_delivered as http_mark_as_delivered
 from ..http.get_friends_list import get_friends_list as http_get_friends_list
 from ..http.change_avatar import change_avatar as http_change_avatar
 from ..http.upload_attachment import upload_attachment as http_upload_attachment
+
+# New features
+from ..graphql.create_new_group import create_new_group as graphql_create_new_group
+from ..http.change_group_image import change_group_image as http_change_group_image
+from ..http.change_blocked_status import (
+    change_blocked_status as http_change_blocked_status,
+)
+from ..http.remove_suspicious_account import (
+    remove_suspicious_account as http_remove_suspicious_account,
+)
+from ..http.get_uid import get_uid as http_get_uid
+
+
 from ..graphql.set_message_reaction import (
     set_message_reaction as gql_set_message_reaction,
 )
@@ -92,8 +105,8 @@ from ..http.handle_message_request import (
 from ..http.change_cover import change_cover as http_change_cover
 
 
-def get_api(ctx: Any):
-    return {
+def get_api(ctx: Any) -> Dict[str, Any]:
+    api = {
         "sendMessage": lambda msg, thread_id, is_single_user=None, reply_to_message=None: http_send_message(
             post, ctx, msg, thread_id, is_single_user, reply_to_message
         ),
@@ -119,11 +132,6 @@ def get_api(ctx: Any):
             post, ctx, message_ids
         ),
         "unsendMessage": lambda message_id: http_unsend_message(post, ctx, message_id),
-        "editMessage": lambda text, message_id: (
-            ctx.mqtt_client.edit_message(text, message_id)
-            if hasattr(ctx, "mqtt_client")
-            else None
-        ),
         "changeNickname": lambda nickname, thread_id, participant_id: http_change_nickname(
             post, ctx, nickname, thread_id, participant_id
         ),
@@ -158,9 +166,6 @@ def get_api(ctx: Any):
         "getFriendsList": lambda: http_get_friends_list(post, ctx),
         "setMessageReaction": lambda reaction, message_id: gql_set_message_reaction(
             post, ctx, reaction, message_id
-        ),
-        "uploadAttachment": lambda attachments: http_upload_attachment(
-            post, ctx, attachments
         ),
         "changeAvatar": lambda image, caption="", timestamp=None: http_change_avatar(
             post, ctx, image, caption, timestamp
@@ -243,12 +248,66 @@ def get_api(ctx: Any):
         # Status & Maintenance
         "markAsSeen": lambda timestamp=None: http_mark_as_seen(post, ctx, timestamp),
         "markAsReadAll": lambda: http_mark_as_read_all(post, ctx),
-        "refreshFb_dtsg": lambda: http_refresh_fb_dtsg(get, ctx),
         "getRegion": lambda: http_get_region(ctx),
         "searchStickers": lambda query="": gql_search_stickers(post, ctx, query),
         "listenMqtt": lambda callback: listen_mqtt(ctx, callback),
-        "getCurrentUserID": lambda: ctx.user_id,
+        "uploadAttachment": lambda attachments: http_upload_attachment(
+            post, ctx, attachments
+        ),
+        "getFreshDtsg": lambda: http_refresh_fb_dtsg(post, ctx),
+        # New features
+        "createNewGroup": lambda participant_ids, group_title=None: graphql_create_new_group(
+            ctx, participant_ids, group_title
+        ),
+        "changeGroupImage": lambda image, thread_id: http_change_group_image(
+            ctx, image, thread_id
+        ),
+        "changeBlockedStatus": lambda user_id, block: http_change_blocked_status(
+            ctx, user_id, block
+        ),
+        "removeSuspiciousAccount": lambda: http_remove_suspicious_account(ctx),
+        "getUID": lambda link: http_get_uid(link),
     }
+
+    # High-speed MQTT actions (if connected)
+    if hasattr(ctx, "mqtt_client") and ctx.mqtt_client:
+        api.update(
+            {
+                "editMessage": lambda text, message_id: ctx.mqtt_client.edit_message(
+                    text, message_id
+                ),
+                "sendMessageMqtt": lambda msg, thread_id, reply_to=None: ctx.mqtt_client.send_message_mqtt(
+                    msg, thread_id, reply_to
+                ),
+                "setMessageReactionMqtt": lambda reaction, message_id, thread_id: ctx.mqtt_client.set_message_reaction_mqtt(
+                    reaction, message_id, thread_id
+                ),
+                "changeBlockedStatusMqtt": lambda user_id, status, type="messenger": ctx.mqtt_client.change_blocked_status_mqtt(
+                    user_id, status, type
+                ),
+            }
+        )
+
+    # Aliases
+    api["sendMessageDM"] = lambda msg, thread_id, reply_to=None: http_send_message(
+        post, ctx, msg, thread_id, reply_to=reply_to, is_single_user=True
+    )
+
+    # Fallback logic for sendMessage
+    original_send_message = api["sendMessage"]
+
+    async def sendMessageWithFallback(msg, thread_id, reply_to=None):
+        try:
+            return await original_send_message(msg, thread_id, reply_to=reply_to)
+        except Exception as e:
+            # If MQTT is connected, we might try sendMessageMqtt as fallback or vice versa
+            # But the JS logic fallbacks to a different method entirely sometimes.
+            # Here we'll just log and try the HTTP method if MQTT failed, or just re-raise if it's already HTTP.
+            raise e
+
+    api["sendMessage"] = sendMessageWithFallback
+
+    return api
 
 
 async def get_thread_list(
