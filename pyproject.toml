@@ -1,5 +1,5 @@
 [project]
-name = "fca-python"
+name = "fca"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -14,6 +14,9 @@ dependencies = [
     "paho-mqtt>=2.1.0",
     "pydantic>=2.12.5",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fca"]
 
 [build-system]
 requires = ["uv_build>=0.9.18,<0.10.0"]
