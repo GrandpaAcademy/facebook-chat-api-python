@@ -170,6 +170,83 @@ class MQTTClient:
             queue_name="edit_message",
         )
 
+    async def send_message_mqtt(
+        self, msg: Any, thread_id: str, reply_to: Optional[str] = None
+    ):
+        if isinstance(msg, str):
+            msg = {"body": msg}
+
+        timestamp = int(time.time() * 1000)
+        otid = (timestamp << 22) + random.randint(0, 4194303)
+
+        task_payload = {
+            "thread_id": str(thread_id),
+            "otid": str(otid),
+            "source": 0,
+            "send_type": 1,
+            "sync_group": 1,
+            "text": str(msg.get("body", "")),
+            "initiating_source": 1,
+            "skip_url_preview_gen": 0,
+        }
+
+        if reply_to:
+            task_payload["reply_metadata"] = {
+                "reply_source_id": str(reply_to),
+                "reply_source_type": 1,
+                "reply_type": 0,
+            }
+
+        return await self.send_ls_request(
+            task_payload,
+            label="46",
+            queue_name=str(thread_id),
+        )
+
+    async def set_message_reaction_mqtt(
+        self, reaction: str, message_id: str, thread_id: str
+    ):
+        task_payload = {
+            "thread_key": str(thread_id),
+            "timestamp_ms": int(time.time() * 1000),
+            "message_id": str(message_id),
+            "reaction": reaction,
+            "actor_id": str(self.ctx.user_id),
+            "reaction_style": None,
+            "sync_group": 1,
+            "send_attribution": 65537 if random.random() < 0.5 else 524289,
+        }
+
+        return await self.send_ls_request(
+            task_payload,
+            label="29",
+            queue_name=json.dumps(["reaction", message_id]),
+        )
+
+    async def change_blocked_status_mqtt(
+        self, user_id: str, status: bool, type: str = "messenger"
+    ):
+        # messenger: 1 (block), 0 (unblock)
+        # facebook: 3 (block), 2 (unblock)
+        if type == "messenger":
+            user_block_action = 1 if status else 0
+        elif type == "facebook":
+            user_block_action = 3 if status else 2
+        else:
+            raise ValueError("Invalid block type")
+
+        task_payload = {
+            "blockee_id": str(user_id),
+            "request_id": get_guid(),
+            "user_block_action": user_block_action,
+        }
+
+        return await self.send_ls_request(
+            task_payload,
+            label="334",
+            queue_name="native_sync_block",
+        )
+
     async def _heartbeat_loop(self):
         """Periodic presence update to prevent suspension."""
         while self.client and self.client.is_connected():
@@ -197,7 +274,7 @@ class MQTTClient:
                 transport="websockets",
                 protocol=mqtt.MQTTv31,
             )
-        except (ImportError, AttributeError):
+        except ImportError, AttributeError:
             client = mqtt.Client(
                 client_id="mqttwsclient", transport="websockets", protocol=mqtt.MQTTv31
             )
