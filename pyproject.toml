@@ -1,0 +1,19 @@
+[project]
+name = "fca-python"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Ebtisam Jubair" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "beautifulsoup4>=4.14.3",
+    "httpx>=0.28.1",
+    "paho-mqtt>=2.1.0",
+    "pydantic>=2.12.5",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.18,<0.10.0"]
+build-backend = "uv_build"
