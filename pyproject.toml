@@ -3,9 +3,10 @@ name = "fca-python"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-license = { text = "MIT" }
+authors = [
     { name = "Ebtisam Jubair" }
 ]
+license = { text = "MIT" }
 requires-python = ">=3.14"
 dependencies = [
     "beautifulsoup4>=4.14.3",
@@ -17,3 +18,4 @@ dependencies = [
 [build-system]
 requires = ["uv_build>=0.9.18,<0.10.0"]
 build-backend = "uv_build"
+筋
