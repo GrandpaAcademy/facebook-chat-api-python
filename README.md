@@ -1,129 +1,91 @@
-# Facebook Messenger Python SDK
+# fca-python: Facebook Messenger Async SDK 🚀
 
-A high-performance, asynchronous, and modular Python port of the Facebook Messenger (FCA) SDK. This SDK provides 100% feature parity with the popular Node.js implementation, supporting HTTP, GraphQL, and real-time MQTT protocols.
+[![PyPI version](https://img.shields.io/pypi/v/fca-python.svg?color=blue)](https://pypi.org/project/fca-python/)
+[![Python versions](https://img.shields.io/pypi/pyversions/fca-python.svg)](https://pypi.org/project/fca-python/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/GrandpaAcademy/facebook-chat-api-python/graphs/commit-activity)
 
-## ✨ Key Features
+**fca-python** is a high-performance, asynchronous, and modular Python SDK for Facebook Messenger. Engineered for speed and reliability, it provides 100% feature parity with the popular Node.js FCA implementation while leveraging Python's modern `asyncio` ecosystem.
 
-- **Async/Await Native**: Built from the ground up using `httpx` and `asyncio`.
-- **Modular Design**: Separated into `core`, `http`, and `graphql` layers for maintainability.
-- **Real-time MQTT**: High-speed message listening and actions (edit, react, block).
-- **Comprehensive API**: Supports 70+ Messenger features including group management, stories, and polls.
+---
 
-## 🚀 Installation
+## 🔝 Key Advantages
 
-Install the required dependencies:
+*   **⚡ Extreme Performance**: Built on `httpx` and `paho-mqtt` for non-blocking I/O.
+*   **🧩 Modular Architecture**: Cleanly separated into Core, HTTP, GraphQL, and MQTT layers.
+*   **📡 Real-time Synchronization**: Native MQTT support for instant message listening and high-speed actions.
+*   **🛠️ Feature Rich**: 70+ functions covering messaging, group management, stories, and polls.
+*   **🛡️ Privacy First**: Secure session handling and automated privacy scrubbing.
 
+---
+
+## 🚀 Quick Start
+
+### 1. Installation
+Install the SDK via pip:
 ```bash
 pip install fca-python
 ```
 
-## 🔐 Authentication
+### 2. Basic Setup
+The SDK provides a simplified facade for instant productivity.
 
-The SDK supports both credential-based login and session-based (appstate) login via a simplified facade.
-
-### Credential Login
 ```python
+import asyncio
 from fca import login
 
 async def main():
+    # Authenticate via Email/Password or AppState (Recommended)
     api = await login(email="your_email", password="your_password")
-    # Your code here
+    
+    # Send a simple message
+    await api["sendMessage"]({"body": "Hello from fca-python!"}, "THREAD_ID")
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
-### Appstate (Session) Login
-Recommended to avoid frequent logins and checkpoints.
-```python
-from fca import login
-import json
+### 3. High-Speed MQTT Usage
+For real-time applications, use the integrated MQTT listener:
 
-async def main():
-    with open("appstate.json", "r") as f:
-        app_state = json.load(f)
-    api = await login(app_state=app_state)
-```
-
-## 🛠 Usage Examples
-
-### Sending a basic message
-```python
-await api["sendMessage"]({"body": "Hello World!"}, "THREAD_ID")
-```
-
-### High-speed MQTT actions
-If connected via MQTT, these actions are synchronized natively.
-```python
-await api["sendMessageMqtt"]({"body": "Fast Message"}, "THREAD_ID")
-await api["editMessage"]("New Content", "MESSAGE_ID")
-```
-
-### Handling Events (MQTT)
 ```python
 async def on_message(event):
     if event.get("type") == "message":
-        print(f"New message: {event['body']}")
+        print(f"📩 New message: {event['body']}")
 
 await api["listenMqtt"](on_message)
 ```
 
-## 📚 API Reference
+---
 
-### Messaging
-- `sendMessage`: Send standard messages (supports body, attachments, mentions).
-- `sendMessageDM`: Alias for sending direct messages.
-- `sendMessageMqtt`: Send message via MQTT for higher speed.
-- `editMessage`: Edit a previously sent message (MQTT).
-- `setMessageReaction`: Set a message reaction (GQL).
-- `setMessageReactionMqtt`: Set reaction via MQTT.
-- `unsendMessage`: Unsend a message.
-- `deleteMessage`: Delete messages for the current user.
+## 📚 API Capabilities
 
-### Thread & Group Management
-- `getThreadInfo`: Get detailed information about a thread.
-- `getThreadList`: Fetch latest threads.
-- `getThreadHistory`: Retrieve message history.
-- `createNewGroup`: Create a new group chat.
-- `changeGroupImage`: Update group avatar.
-- `addUserToGroup` / `removeUserFromGroup`: Manage participants.
-- `changeAdminStatus`: Set/unset group admins.
-- `setTitle` / `changeNickname`: Update thread details.
-- `changeThreadColor` / `changeThreadEmoji`: Customize styling.
-- `muteThread` / `deleteThread`: Manage notifications and visibility.
-
-### User & Social
-- `getUserInfo`: Get user profile details.
-- `getUID`: Resolve Facebook link/username to UID.
-- `createNote` / `deleteNote`: Messenger Notes support.
-- `createPoll`: Create polls in groups.
-- `createPost` / `createCommentPost`: Interaction with Facebook posts.
-- `setStoryReaction` / `setStorySeen`: Story interactions.
-- `changeBio` / `changeName`: Profile customization.
-
-## 🏗 Modular Architecture
-
-The SDK is designed for maximum clarity and extensibility.
-
-### Internal Layers
-1. **`src.core.core`**: Handles session initialization, cookie parsing, and `revision` extraction. It builds the `Context` object shared by all services.
-2. **`src.core.api`**: The assembly point. It maps modular service functions to the user-facing `api` dictionary.
-3. **`src.http`**: Atomic implementations of standard Facebook web endpoints.
-4. **`src.graphql`**: Complex data fetching using Facebook's GraphQL engine, includes response formatters in `src.graphql.formatter`.
-5. **`src.core.mqtt`**: An event-driven client using `paho-mqtt` over WebSockets, optimized for real-time interaction.
-
-### The `Context` Object
-Most functions require a `ctx` object. This object holds:
-- Active `httpx.AsyncClient`
-- Current `fb_dtsg` token and `revision`
-- User UID and ClientID
-- MQTT Client instance (if connected)
-
-## ✅ Contribution & Quality
-This SDK is strictly linted and follows PEP 8.
-- **Formatter**: `black`
-- **Linter**: `ruff`, `flake8`
+| Category | Supported Features |
+| :--- | :--- |
+| **Messaging** | `sendMessage`, `editMessage`, `unsendMessage`, `setMessageReaction`, `forwardAttachment` |
+| **Groups** | `createNewGroup`, `changeGroupImage`, `addUserToGroup`, `removeUserFromGroup`, `changeAdminStatus` |
+| **User Profile** | `getUserInfo`, `getUID`, `changeName`, `changeBio`, `changeUsername`, `setProfileLock` |
+| **Social** | `createPoll`, `createPost`, `setStoryReaction`, `handleFriendRequest`, `createNote` |
+| **Maintenance** | `getThreadList`, `deleteThread`, `muteThread`, `markAsSeen`, `getThreadHistory` |
 
 ---
-*Note: This is a port of the `ST-FCA` project. Ensure you comply with Meta's Terms of Service when using this SDK.*
 
-## 📜 License
+## 🏗️ Architecture Deep Dive
 
-This project is licensed under the [MIT License](LICENSE).
+The SDK is organized into logical layers to ensure maximum extensibility:
+1.  **Core**: Authentication, session management, and API factory.
+2.  **HTTP**: Native Facebook web endpoint implementations.
+3.  **GraphQL**: High-level data queries using the Facebook GQL engine.
+4.  **MQTT**: Event-driven WebSocket client for real-time interaction.
+
+---
+
+## ⚖️ License & Disclaimer
+
+This project is licensed under the **MIT License**.
+
+> [!IMPORTANT]
+> This is a port of the `ST-FCA` project. This software is provided **as-is**, without any warranty or guarantee of maintenance. The author is not responsible for any illegal usage. Use responsibly and comply with Meta's Terms of Service.
+
+---
+Built with ❤️ for the Python community.
