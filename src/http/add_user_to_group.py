@@ -1,16 +1,19 @@
 import time
 from typing import Any, List, Union
 from ..utils.utils import (
-    parse_and_check_login, 
-    generate_offline_threading_id, 
+    parse_and_check_login,
+    generate_offline_threading_id,
     generate_timestamp_relative,
-    generate_threading_id
+    generate_threading_id,
 )
 
-async def add_user_to_group(post_func, ctx: Any, user_ids: Union[str, List[str]], thread_id: str):
+
+async def add_user_to_group(
+    post_func, ctx: Any, user_ids: Union[str, List[str]], thread_id: str
+):
     if isinstance(user_ids, str):
         user_ids = [user_ids]
-        
+
     otid = generate_offline_threading_id()
     form = {
         "client": "mercury",
@@ -38,10 +41,10 @@ async def add_user_to_group(post_func, ctx: Any, user_ids: Union[str, List[str]]
         "manual_retry_cnt": "0",
         "thread_fbid": thread_id,
     }
-    
+
     for i, user_id in enumerate(user_ids):
         form[f"log_message_data[added_participants][{i}]"] = f"fbid:{user_id}"
-        
+
     res = await post_func("https://www.facebook.com/messaging/send/", ctx, form)
     res_data = parse_and_check_login(ctx, res)
     if not res_data:

@@ -2,21 +2,31 @@ import time
 import random
 import json
 import re
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 import httpx
 from urllib.parse import quote
+
 
 def set_proxy(url: Optional[str] = None):
     # httpx doesn't use a global proxy setting like 'request' in Node.js
     # Proxy should be passed to the client
     pass
 
-def get_headers(url_str: str, options: Dict[str, Any], ctx: Optional[Any] = None, custom_header: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+
+def get_headers(
+    url_str: str,
+    options: Dict[str, Any],
+    ctx: Optional[Any] = None,
+    custom_header: Optional[Dict[str, str]] = None,
+) -> Dict[str, str]:
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
         "Referer": "https://www.facebook.com/",
         "Origin": "https://www.facebook.com",
-        "User-Agent": options.get("userAgent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.5060.114 Safari/537.36"),
+        "User-Agent": options.get(
+            "userAgent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.5060.114 Safari/537.36",
+        ),
         "Connection": "keep-alive",
         "sec-fetch-site": "same-origin",
         "sec-fetch-mode": "cors",
@@ -32,10 +42,12 @@ def get_headers(url_str: str, options: Dict[str, Any], ctx: Optional[Any] = None
             headers["av"] = ctx.user_id
     return headers
 
+
 def generate_threading_id(client_id: str) -> str:
     k = int(time.time() * 1000)
     l_val = random.randint(0, 4294967295)
     return f"<{k}:{l_val}-{client_id}@mail.projektitan.com>"
+
 
 def binary_to_decimal(data: str) -> str:
     if not data or data == "0":
@@ -57,6 +69,7 @@ def binary_to_decimal(data: str) -> str:
         curr_data = full_name[first_one:] if first_one != -1 else "0"
     return ret
 
+
 def generate_offline_threading_id() -> str:
     ret = int(time.time() * 1000)
     value = random.randint(0, 4294967295)
@@ -64,23 +77,28 @@ def generate_offline_threading_id() -> str:
     msgs = str(bin(ret)[2:]) + str(str_val)
     return binary_to_decimal(msgs)
 
+
 def generate_timestamp_relative() -> str:
     return str(int(time.time() * 1000))
 
+
 def get_guid() -> str:
-    section_length = [int(time.time() * 1000)] # Use list for closure mutability
+    section_length = [int(time.time() * 1000)]  # Use list for closure mutability
+
     def replace_char(match):
         r = int((section_length[0] + random.random() * 16) % 16)
         section_length[0] //= 16
         char = match.group(0)
-        return hex(r if char == 'x' else (r & 7) | 8)[2:]
-    
-    return re.sub(r'[xy]', replace_char, "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx")
+        return hex(r if char == "x" else (r & 7) | 8)[2:]
+
+    return re.sub(r"[xy]", replace_char, "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx")
+
 
 def format_id(f_id: Any) -> Optional[str]:
     if f_id is not None:
         return str(f_id).replace("fbid:", "").replace("id:", "")
     return None
+
 
 def get_from(source: str, start: str, end: str) -> Optional[str]:
     try:
@@ -89,6 +107,7 @@ def get_from(source: str, start: str, end: str) -> Optional[str]:
         return source[a:b]
     except ValueError:
         return None
+
 
 def parse_and_check_login(ctx: Any, response: httpx.Response) -> Any:
     # Basic implementation of parseAndCheckLogin
@@ -100,39 +119,45 @@ def parse_and_check_login(ctx: Any, response: httpx.Response) -> Any:
     except Exception:
         return None
 
+
 def build_form_defaults(ctx: Any, form: Dict[str, Any]) -> Dict[str, Any]:
     jazoest = "2"
     if hasattr(ctx, "fb_dtsg") and ctx.fb_dtsg:
         for c in ctx.fb_dtsg:
             jazoest += str(ord(c))
-            
+
     defaults = {
         "__user": getattr(ctx, "user_id", ""),
         "__req": getattr(ctx, "req_counter", 0),
         "__rev": getattr(ctx, "revision", ""),
         "__a": "1",
         "fb_dtsg": getattr(ctx, "fb_dtsg", ""),
-        "jazoest": jazoest
+        "jazoest": jazoest,
     }
-    
+
     for k, v in defaults.items():
         if k not in form:
             form[k] = v
     return form
 
-async def get(url: str, ctx: Any, form: Optional[Dict[str, Any]] = None) -> httpx.Response:
+
+async def get(
+    url: str, ctx: Any, form: Optional[Dict[str, Any]] = None
+) -> httpx.Response:
     headers = get_headers(url, ctx.options, ctx)
     res = await ctx.client.get(url, params=form, headers=headers)
     return res
 
+
 async def post(url: str, ctx: Any, form: Dict[str, Any]) -> httpx.Response:
     headers = get_headers(url, ctx.options, ctx)
     form = build_form_defaults(ctx, form)
-    
+
     def to_base36(n):
-        chars = '0123456789abcdefghijklmnopqrstuvwxyz'
-        if n == 0: return '0'
-        res = ''
+        chars = "0123456789abcdefghijklmnopqrstuvwxyz"
+        if n == 0:
+            return "0"
+        res = ""
         while n:
             res = chars[n % 36] + res
             n //= 36
@@ -141,12 +166,14 @@ async def post(url: str, ctx: Any, form: Dict[str, Any]) -> httpx.Response:
     form["__req"] = to_base36(getattr(ctx, "req_counter", 0))
     if hasattr(ctx, "req_counter"):
         ctx.req_counter += 1
-    
+
     res = await ctx.client.post(url, data=form, headers=headers)
     return res
 
+
 def get_signature_id() -> str:
     return hex(random.randint(0, 2147483647))[2:]
+
 
 PRESENCE_MAP = {
     "_": "%",
@@ -175,28 +202,30 @@ PRESENCE_MAP = {
     "W": "%2c%22s%22%3a0%2c%22blo%22%3a0%7d%2c%22bl%22%3a%7b%22ac%22%3a",
     "X": "%2c%22ri%22%3a0%7d%2c%22state%22%3a%7b%22p%22%3a0%2c%22ut%22%3a1",
     "Y": "%2c%22pt%22%3a0%2c%22vis%22%3a1%2c%22bls%22%3a0%2c%22blc%22%3a0%2c%22snd%22%3a1%2c%22ct%22%3a",
-    "Z": "%2c%22sb%22%3a1%2c%22t%22%3a%5b%5d%2c%22f%22%3anull%2c%22uct%22%3a0%2c%22s%22%3a0%2c%22blo%22%3a0%7d%2c%22bl%22%3a%7b%22ac%22%3a"
+    "Z": "%2c%22sb%22%3a1%2c%22t%22%3a%5b%5d%2c%22f%22%3anull%2c%22uct%22%3a0%2c%22s%22%3a0%2c%22blo%22%3a0%7d%2c%22bl%22%3a%7b%22ac%22%3a",
 }
+
 
 def presence_encode(str_val: str) -> str:
     encoded = quote(str_val)
-    
+
     def manual_encode(match):
         m = match.group(0)
         if len(m) == 1:
             return f"%{ord(m):02x}"
         return m
-    
-    encoded = re.sub(r'([_A-Z])|%..', manual_encode, encoded).lower()
-    
+
+    encoded = re.sub(r"([_A-Z])|%..", manual_encode, encoded).lower()
+
     keys = sorted(PRESENCE_MAP.values(), key=len, reverse=True)
-    pattern = '|'.join(re.escape(k) for k in keys)
+    pattern = "|".join(re.escape(k) for k in keys)
     inv_map = {v: k for k, v in PRESENCE_MAP.items()}
-    
+
     def replace_map(match):
         return inv_map[match.group(0)]
-    
+
     return re.sub(pattern, replace_map, encoded)
+
 
 def generate_presence(user_id: str) -> str:
     now_ms = int(time.time() * 1000)
@@ -211,10 +240,8 @@ def generate_presence(user_id: str) -> str:
             "uct2": now_ms,
             "tr": None,
             "tw": random.randint(1, 4294967295),
-            "at": now_ms
+            "at": now_ms,
         },
-        "ch": {
-            f"p_{user_id}": 0
-        }
+        "ch": {f"p_{user_id}": 0},
     }
     return "E" + presence_encode(json.dumps(state))

@@ -1,6 +1,11 @@
 import time
 from typing import Any
-from ..utils.utils import generate_offline_threading_id, generate_threading_id, parse_and_check_login
+from ..utils.utils import (
+    generate_offline_threading_id,
+    generate_threading_id,
+    parse_and_check_login,
+)
+
 
 async def set_title(post_func, ctx: Any, new_title: str, thread_id: str):
     message_and_otid = generate_offline_threading_id()
@@ -25,5 +30,7 @@ async def set_title(post_func, ctx: Any, new_title: str, thread_id: str):
         "thread_id": thread_id,
         "log_message_type": "log:thread-name",
     }
-    res = await post_func("https://www.facebook.com/messaging/set_thread_name/", ctx, form)
+    res = await post_func(
+        "https://www.facebook.com/messaging/set_thread_name/", ctx, form
+    )
     return parse_and_check_login(ctx, res)

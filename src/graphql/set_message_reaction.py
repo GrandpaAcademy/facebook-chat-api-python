@@ -1,8 +1,15 @@
 import json
-from typing import Any, Optional
+from typing import Any
 from ..utils.utils import parse_and_check_login
 
-async def set_message_reaction(post_func, ctx: Any, reaction: str, message_id: str, force_custom_reaction: bool = False):
+
+async def set_message_reaction(
+    post_func,
+    ctx: Any,
+    reaction: str,
+    message_id: str,
+    force_custom_reaction: bool = False,
+):
     # Mapping of common reaction names to emojis (simplified)
     reactions_map = {
         ":heart_eyes:": "😍",
@@ -21,10 +28,10 @@ async def set_message_reaction(post_func, ctx: Any, reaction: str, message_id: s
         ":heart:": "❤️",
         ":glowingheart:": "💗",
     }
-    
+
     if reaction in reactions_map:
         reaction = reactions_map[reaction]
-        
+
     variables = {
         "data": {
             "client_mutation_id": ctx.client_mutation_id,
@@ -42,7 +49,9 @@ async def set_message_reaction(post_func, ctx: Any, reaction: str, message_id: s
         "dpr": 1,
     }
 
-    res = await post_func("https://www.facebook.com/webgraphql/mutation/", ctx, {}, params=qs)
+    res = await post_func(
+        "https://www.facebook.com/webgraphql/mutation/", ctx, {}, params=qs
+    )
     res_data = parse_and_check_login(ctx, res)
     if not res_data:
         raise Exception("setReaction returned empty object.")

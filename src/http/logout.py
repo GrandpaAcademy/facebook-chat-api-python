@@ -2,6 +2,7 @@ import json
 from typing import Any
 from ..utils.utils import get_from, parse_and_check_login
 
+
 async def logout(post_func, ctx: Any):
     menu_url = "https://www.facebook.com/bluebar/modern_settings_menu/?help_type=364455653583099&show_contextual_help=1"
     res = await post_func(menu_url, ctx, {"pmid": "0"})
