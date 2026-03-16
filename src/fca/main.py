@@ -1,5 +1,5 @@
-from .src.core.core import login as core_login
-from .src.core.api import get_api
+from .core.core import login as core_login
+from .core.api import get_api
 
 async def login(email=None, password=None, app_state=None, options=None):
     """

@@ -110,14 +110,52 @@ def get_from(source: str, start: str, end: str) -> Optional[str]:
 
 
 def parse_and_check_login(ctx: Any, response: httpx.Response) -> Any:
-    # Basic implementation of parseAndCheckLogin
+    # Robust implementation of parseAndCheckLogin for both batch and single responses
     try:
-        data = response.text
-        if data.startswith("for (;;);"):
-            data = data[9:]
-        return json.loads(data)
+        text = response.text
+        if text.startswith("for (;;);"):
+            text = text[9:]
+        
+        # Try to parse the whole text as JSON first
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            # If it's a batch response (NDJSON)
+            lines = text.strip().split("\n")
+            results = []
+            for line in lines:
+                if line.strip():
+                    try:
+                        results.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue
+            return results if results else {}
     except Exception:
+        return {}
         return None
+
+
+def get_event_time() -> str:
+    return str(int(time.time() * 1000))
+
+
+def get_session_id() -> str:
+    return get_guid()
+
+
+def get_jazoest(fb_dtsg: str) -> str:
+    jazoest = "2"
+    if fb_dtsg:
+        for c in fb_dtsg:
+            jazoest += str(ord(c))
+    return jazoest
+
+
+def save_cookies(client: httpx.AsyncClient):
+    def impl(response: httpx.Response):
+        if hasattr(client, "cookies") and hasattr(response, "cookies"):
+            client.cookies.update(response.cookies)
+    return impl
 
 
 def build_form_defaults(ctx: Any, form: Dict[str, Any]) -> Dict[str, Any]:

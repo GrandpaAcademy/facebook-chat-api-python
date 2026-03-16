@@ -250,7 +250,9 @@ def get_api(ctx: Any) -> Dict[str, Any]:
         "markAsReadAll": lambda: http_mark_as_read_all(post, ctx),
         "getRegion": lambda: http_get_region(ctx),
         "searchStickers": lambda query="": gql_search_stickers(post, ctx, query),
-        "listenMqtt": lambda callback: listen_mqtt(ctx, callback),
+        "listenMqtt": lambda callback: listen_mqtt(
+            ctx, callback, refresh_handler=lambda: gql_get_thread_list(post, ctx, 1, tags=["INBOX"])
+        ),
         "uploadAttachment": lambda attachments: http_upload_attachment(
             post, ctx, attachments
         ),
@@ -267,6 +269,18 @@ def get_api(ctx: Any) -> Dict[str, Any]:
         ),
         "removeSuspiciousAccount": lambda: http_remove_suspicious_account(ctx),
         "getUID": lambda link: http_get_uid(link),
+        "getSession": lambda: [
+            {
+                "key": c.name,
+                "value": c.value,
+                "domain": c.domain,
+                "path": c.path,
+                "expires": c.expires,
+            }
+            for c in ctx.client.cookies.jar
+        ],
+        "getCurrentUserID": lambda: ctx.user_id,
+        "setOptions": lambda new_options: ctx.options.update(new_options),
     }
 
     # High-speed MQTT actions (if connected)

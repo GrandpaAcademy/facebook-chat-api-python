@@ -21,7 +21,7 @@ async def get_thread_list(
                         "before": timestamp,
                         "tags": tags,
                         "includeDeliveryReceipts": True,
-                        "includeSeqID": False,
+                        "includeSeqID": True,
                     },
                 }
             }
@@ -30,18 +30,34 @@ async def get_thread_list(
     }
     res = await post_func("https://www.facebook.com/api/graphqlbatch/", ctx, form)
     res_data = parse_and_check_login(ctx, res)
+    
     if not res_data:
         raise Exception("Failed to parse getThreadList response")
+
+    # Handle both single object and list of objects
+    if isinstance(res_data, dict):
+        batch_results = [res_data]
+    elif isinstance(res_data, list):
+        batch_results = res_data
+    else:
+        batch_results = []
+
     threads = []
-    if isinstance(res_data, list) and len(res_data) > 0:
-        nodes = (
-            res_data[0]
+    if batch_results:
+        message_threads = (
+            batch_results[0]
             .get("o0", {})
             .get("data", {})
             .get("viewer", {})
             .get("message_threads", {})
-            .get("nodes", [])
         )
+        
+        # Extract irisSeqID/sync_id/sync_sequence_id if present
+        sync_id = message_threads.get("sync_id") or message_threads.get("sync_sequence_id") or message_threads.get("irisSeqID")
+        if sync_id:
+            ctx.last_seq_id = str(sync_id)
+
+        nodes = message_threads.get("nodes", [])
         if timestamp and nodes:
             nodes.pop(0)
         for node in nodes:

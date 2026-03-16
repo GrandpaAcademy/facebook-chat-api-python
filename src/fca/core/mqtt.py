@@ -31,14 +31,16 @@ TOPICS = [
 
 
 class MQTTClient:
-    def __init__(self, ctx: Any, global_callback: Callable):
+    def __init__(self, ctx: Any, global_callback: Callable, refresh_handler: Optional[Callable] = None):
         self.ctx = ctx
         self.global_callback = global_callback
+        self.refresh_handler = refresh_handler
         self.session_id = random.randint(1, 9007199254740991)
         self.guid = get_guid()
         self.client: Optional[mqtt.Client] = None
         self.ws_req_number: int = 0
         self.ws_task_number: int = 0
+        self.loop = asyncio.get_event_loop()
 
     def _get_username(self) -> str:
         username = {
@@ -64,7 +66,7 @@ class MQTTClient:
         }
         return json.dumps(username)
 
-    def _on_connect(self, client, userdata, flags, rc):
+    def _on_connect(self, client, userdata, flags, rc, properties=None):
         if rc == 0:
             logger.info("FCA MQTT Connected")
             for topic in TOPICS:
@@ -85,13 +87,73 @@ class MQTTClient:
         else:
             logger.error(f"MQTT Connection failed with code {rc}")
 
+    def _parse_delta(self, delta):
+        cls = delta.get("class")
+        if cls in ["NewMessage", "DeltaNewMessage"]:
+            meta = delta.get("messageMetadata") or delta.get("message_metadata") or {}
+            body = delta.get("body") or delta.get("text") or ""
+            
+            thread_key = meta.get("threadKey") or meta.get("thread_key") or {}
+            sender_id = str(meta.get("actorId") or meta.get("actor_id") or "")
+            
+            return {
+                "type": "message",
+                "senderID": sender_id,
+                "body": body,
+                "threadID": format_id(
+                    str(
+                        thread_key.get("threadFbId")
+                        or thread_key.get("thread_fbid")
+                        or thread_key.get("otherUserFbId")
+                        or thread_key.get("other_user_fbid")
+                        or sender_id
+                    )
+                ),
+                "messageID": meta.get("messageId") or meta.get("message_id"),
+                "timestamp": meta.get("timestamp") or meta.get("timestamp_ms"),
+                "isGroup": "threadFbId" in thread_key or "thread_fbid" in thread_key,
+            }
+        return None
+
     def _on_message(self, client, userdata, msg):
         try:
             topic = msg.topic
             payload = json.loads(msg.payload.decode())
+            print(f"📡 MQTT Message on {topic}")
             # logger.debug(f"MQTT Message on {topic}: {payload}")
 
             if topic == "/t_ms":
+                print(f"📦 Payload: {payload}")
+                
+                if payload.get("errorCode") == "ERROR_QUEUE_OVERFLOW":
+                    print("⚠️ Queue overflow! Attempting fresh sync refresh...")
+                    if self.refresh_handler:
+                        # Schedule refresh in the background
+                        async def do_refresh():
+                            try:
+                                handler = self.refresh_handler
+                                if handler:
+                                    await handler()
+                                print(f"♻️ Refresh complete. New last_seq_id: {self.ctx.last_seq_id}")
+                                
+                                # Re-create queue with fresh ID
+                                sync_topic = "/messenger_sync_create_queue"
+                                queue = {
+                                    "sync_api_version": 10,
+                                    "max_deltas_able_to_process": 1000,
+                                    "delta_batch_size": 500,
+                                    "encoding": "JSON",
+                                    "entity_fbid": self.ctx.user_id,
+                                    "initial_titan_sequence_id": self.ctx.last_seq_id,
+                                    "device_params": None,
+                                }
+                                client.publish(sync_topic, json.dumps(queue), qos=1)
+                            except Exception as e:
+                                logger.error(f"Sync refresh failed: {e}")
+
+                        asyncio.run_coroutine_threadsafe(do_refresh(), self.loop)
+                    return
+
                 if "firstDeltaSeqId" in payload and "syncToken" in payload:
                     self.ctx.last_seq_id = payload["firstDeltaSeqId"]
                     self.ctx.sync_token = payload["syncToken"]
@@ -100,8 +162,13 @@ class MQTTClient:
                     self.ctx.last_seq_id = int(payload["lastIssuedSeqId"])
 
                 for delta in payload.get("deltas", []):
-                    # Placeholder for parse_delta
-                    self.global_callback(None, {"type": "delta", "delta": delta})
+                    # print(f"🔹 Delta Class: {delta.get('class')}")
+                    parsed_event = self._parse_delta(delta)
+                    if parsed_event:
+                        print(f"✅ Parsed Event: {parsed_event.get('type')}")
+                        asyncio.run_coroutine_threadsafe(
+                            self.global_callback(None, parsed_event), self.loop
+                        )
 
             elif topic in ["/thread_typing", "/orca_typing_notifications"]:
                 typ = {
@@ -112,7 +179,10 @@ class MQTTClient:
                         str(payload.get("thread") or payload.get("sender_fbid", ""))
                     ),
                 }
-                self.global_callback(None, typ)
+                asyncio.run_coroutine_threadsafe(
+                    self.global_callback(None, typ),
+                    self.loop
+                )
 
             elif topic == "/orca_presence":
                 for item in payload.get("list", []):
@@ -122,7 +192,10 @@ class MQTTClient:
                         "timestamp": item["l"] * 1000,
                         "statuses": item["p"],
                     }
-                    self.global_callback(None, presence)
+                    asyncio.run_coroutine_threadsafe(
+                        self.global_callback(None, presence),
+                        self.loop
+                    )
 
         except Exception as e:
             logger.error(f"Error parsing MQTT message: {e}")
@@ -158,8 +231,9 @@ class MQTTClient:
             "type": 3,
         }
 
-        if self.client and self.client.is_connected():
-            self.client.publish("/ls_req", json.dumps(content), qos=1)
+        client = self.client
+        if client and client.is_connected():
+            client.publish("/ls_req", json.dumps(content), qos=1)
             return True
         return False
 
@@ -251,37 +325,29 @@ class MQTTClient:
         """Periodic presence update to prevent suspension."""
         while self.client and self.client.is_connected():
             try:
-                # Use a dynamic import or post call directly to avoid circular dependency
-
-                # Just any simple non-destructive request to keep session alive
-                # or a direct call if we move the function logic
-                logger.debug("Sending heartbeat...")
-                # For now, just ensuring we stay connected
+                # logger.debug("Sending heartbeat...")
+                pass
             except Exception as e:
                 logger.error(f"Heartbeat failed: {e}")
             await asyncio.sleep(random.randint(30, 60))  # Every 30-60s
 
     def connect(self):
-        # paho-mqtt version 1.x or 2.x? Let's check.
-        # Using CallbackAPIVersion for paho-mqtt 2.0+
-        client = None
         try:
             from paho.mqtt.enums import CallbackAPIVersion
 
-            client = mqtt.Client(
-                callback_api_version=CallbackAPIVersion.VERSION1,
+            self.client = mqtt.Client(
+                callback_api_version=CallbackAPIVersion.VERSION2,
                 client_id="mqttwsclient",
                 transport="websockets",
                 protocol=mqtt.MQTTv31,
             )
-        except ImportError, AttributeError:
-            client = mqtt.Client(
+        except (ImportError, AttributeError):
+            # Fallback for older paho-mqtt
+            self.client = mqtt.Client(
                 client_id="mqttwsclient", transport="websockets", protocol=mqtt.MQTTv31
             )
 
-        self.client = client
-        if self.client:
-            self.client.username_pw_set(self._get_username())
+        self.client.username_pw_set(self._get_username())
 
         # SSL and Cookies
         host = (
@@ -309,23 +375,24 @@ class MQTTClient:
             },
         )
 
-        if self.client:
-            self.client.on_connect = self._on_connect
-            self.client.on_message = self._on_message
+        self.client.on_connect = self._on_connect
+        self.client.on_message = self._on_message
 
-            # Connect to edge-chat.facebook.com:443
-            self.client.tls_set()  # Enable TLS for wss
-            self.client.connect("edge-chat.facebook.com", 443, keepalive=60)
-            self.client.loop_start()
+        # Connect to edge-chat.facebook.com:443
+        self.client.tls_set()  # Enable TLS for wss
+        self.client.connect("edge-chat.facebook.com", 443, keepalive=60)
+        self.client.loop_start()
 
         # Start heartbeat
-        import asyncio
-
         asyncio.create_task(self._heartbeat_loop())
 
 
-def listen_mqtt(ctx: Any, global_callback: Callable):
-    mqtt_client = MQTTClient(ctx, global_callback)
+async def listen_mqtt(ctx: Any, global_callback: Callable, refresh_handler: Optional[Callable] = None):
+    mqtt_client = MQTTClient(ctx, global_callback, refresh_handler=refresh_handler)
     mqtt_client.connect()
     ctx.mqtt_client = mqtt_client
+    
+    # Block indefinitely to keep the script running
+    while True:
+        await asyncio.sleep(1)
     return mqtt_client
