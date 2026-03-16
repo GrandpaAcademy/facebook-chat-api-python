@@ -9,8 +9,11 @@ from .utils import (
     generate_threading_id, 
     get_headers, 
     parse_and_check_login, 
-    get_from
+    get_from,
+    get_signature_id
 )
+
+from .mqtt import listen_mqtt 
 
 def build_form_defaults(ctx: Any, form: Dict[str, Any]) -> Dict[str, Any]:
     jazoest = "2"
@@ -242,6 +245,41 @@ async def logout(ctx: Any):
     ctx.logged_in = False
     return True
 
+async def set_active_status(ctx: Any, is_active: bool):
+    form = {}
+    sig = get_signature_id()
+    form.update({
+        "__aaid": "0",
+        "__req": sig,
+        "__hs": "20351.HYP:comet_pkg.2.1...0",
+        "dpr": "1",
+        "__ccg": "EXCELLENT",
+        "__rev": ctx.revision,
+        "__s": sig,
+        "__hsi": "7552256848274926554",
+        "__comet_req": "15",
+        "lsd": ctx.fb_dtsg,
+        "__spin_r": ctx.revision,
+        "__spin_b": "trunk",
+        "__spin_t": str(int(time.time())),
+        "fb_api_caller_class": "RelayModern",
+        "fb_api_req_friendly_name": "UpdatePresenceSettingsMutation",
+        "variables": json.dumps({
+            "input": {
+                "online_policy": "ALLOWLIST",
+                "web_allowlist": [],
+                "web_visibility": is_active,
+                "actor_id": str(ctx.user_id),
+                "client_mutation_id": "1"
+            }
+        }),
+        "server_timestamps": "true",
+        "doc_id": "9444355898946246"
+    })
+    
+    res = await post("https://www.facebook.com/api/graphql/", ctx, form)
+    return parse_and_check_login(ctx, res)
+
 def get_api(ctx: Any):
     return {
         "sendMessage": lambda msg, thread_id, is_single_user=None, reply_to_message=None: send_message(ctx, msg, thread_id, is_single_user, reply_to_message),
@@ -251,5 +289,7 @@ def get_api(ctx: Any):
         "markAsRead": lambda thread_id, read=True: mark_as_read(ctx, thread_id, read),
         "setTitle": lambda new_title, thread_id: set_title(ctx, new_title, thread_id),
         "logout": lambda: logout(ctx),
+        "setActiveStatus": lambda is_active: set_active_status(ctx, is_active),
+        "listenMqtt": lambda callback: listen_mqtt(ctx, callback),
         "getCurrentUserID": lambda: ctx.user_id,
     }

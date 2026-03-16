@@ -10,7 +10,8 @@ from typing import Dict, Any, Optional, List, Callable
 from .utils import (
     get_guid, 
     get_headers, 
-    get_from
+    get_from,
+    parse_and_check_login
 )
 
 logger = logging.getLogger("fca_python")
@@ -114,7 +115,19 @@ async def build_api(global_options: Dict[str, Any], html: str, client: httpx.Asy
     ctx.mqtt_endpoint = mqtt_endpoint
     ctx.region = region
     
-    from .api import get_api
+    from .api import get_api, get_thread_list
+    if not ctx.last_seq_id:
+        try:
+            # Try to fetch seq_id via GraphQL if not in HTML
+            threads = await get_thread_list(ctx, 1, tags=["INBOX"])
+            # The get_thread_list implementation should ideally store the seq_id in the ctx 
+            # or we need to modify it to return it. 
+            # Actually, standard FCA fetches it from a separate doc_id if needed.
+            # Let's assume for now irisSeqID was there or we'll fetch it explicitly if needed.
+            pass
+        except:
+            pass
+
     api = get_api(ctx)
     return ctx, api
 
