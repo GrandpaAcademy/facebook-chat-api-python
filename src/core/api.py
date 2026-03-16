@@ -4,7 +4,7 @@ import json
 import re
 from typing import Any, Optional, Dict, List
 
-from .utils import (
+from ..utils.utils import (
     generate_offline_threading_id, 
     generate_threading_id, 
     get_headers, 

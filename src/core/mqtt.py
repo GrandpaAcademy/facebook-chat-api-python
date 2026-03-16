@@ -5,7 +5,7 @@ import random
 import logging
 import paho.mqtt.client as mqtt
 from typing import Any, Dict, List, Optional, Callable
-from .utils import get_guid, format_id
+from ..utils.utils import get_guid, format_id
 
 logger = logging.getLogger("fca_python.mqtt")
 

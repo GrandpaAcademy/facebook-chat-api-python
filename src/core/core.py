@@ -7,7 +7,7 @@ import re
 import random
 from typing import Dict, Any, Optional, List, Callable
 
-from .utils import (
+from ..utils.utils import (
     get_guid, 
     get_headers, 
     get_from,
