@@ -123,3 +123,7 @@ This SDK is strictly linted and follows PEP 8.
 
 ---
 *Note: This is a port of the `ST-FCA` project. Ensure you comply with Meta's Terms of Service when using this SDK.*
+
+## 📜 License
+
+This project is licensed under the [MIT License](LICENSE).

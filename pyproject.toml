@@ -3,7 +3,7 @@ name = "fca-python"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
+license = { text = "MIT" }
     { name = "Ebtisam Jubair" }
 ]
 requires-python = ">=3.14"
