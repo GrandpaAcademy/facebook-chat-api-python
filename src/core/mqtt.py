@@ -36,6 +36,8 @@ class MQTTClient:
         self.session_id = random.randint(1, 9007199254740991)
         self.guid = get_guid()
         self.client: Optional[mqtt.Client] = None
+        self.ws_req_number: int = 0
+        self.ws_task_number: int = 0
         
     def _get_username(self) -> str:
         username = {
@@ -121,6 +123,41 @@ class MQTTClient:
 
         except Exception as e:
             logger.error(f"Error parsing MQTT message: {e}")
+
+    async def send_ls_request(self, payload: Dict[str, Any], label: str = "742", queue_name: str = "edit_message"):
+        self.ws_req_number += 1
+        self.ws_task_number += 1
+        
+        task = {
+            "failure_count": None,
+            "label": label,
+            "payload": json.dumps(payload),
+            "queue_name": queue_name,
+            "task_id": self.ws_task_number
+        }
+        
+        content = {
+            "app_id": "2220391788200892",
+            "payload": json.dumps({
+                "data_trace_id": None,
+                "epoch_id": int(time.time() * 1000),
+                "tasks": [task],
+                "version_id": "6903494529735864"
+            }),
+            "request_id": self.ws_req_number,
+            "type": 3
+        }
+        
+        if self.client and self.client.is_connected():
+            self.client.publish("/ls_req", json.dumps(content), qos=1)
+            return True
+        return False
+
+    async def edit_message(self, text: str, message_id: str):
+        return await self.send_ls_request({
+            "message_id": message_id,
+            "text": text
+        }, label="742", queue_name="edit_message")
 
     async def _heartbeat_loop(self):
         """Periodic presence update to prevent suspension."""

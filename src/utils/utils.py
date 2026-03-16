@@ -64,6 +64,9 @@ def generate_offline_threading_id() -> str:
     msgs = str(bin(ret)[2:]) + str(str_val)
     return binary_to_decimal(msgs)
 
+def generate_timestamp_relative() -> str:
+    return str(int(time.time() * 1000))
+
 def get_guid() -> str:
     section_length = [int(time.time() * 1000)] # Use list for closure mutability
     def replace_char(match):
@@ -96,6 +99,51 @@ def parse_and_check_login(ctx: Any, response: httpx.Response) -> Any:
         return json.loads(data)
     except Exception:
         return None
+
+def build_form_defaults(ctx: Any, form: Dict[str, Any]) -> Dict[str, Any]:
+    jazoest = "2"
+    if hasattr(ctx, "fb_dtsg") and ctx.fb_dtsg:
+        for c in ctx.fb_dtsg:
+            jazoest += str(ord(c))
+            
+    defaults = {
+        "__user": getattr(ctx, "user_id", ""),
+        "__req": getattr(ctx, "req_counter", 0),
+        "__rev": getattr(ctx, "revision", ""),
+        "__a": "1",
+        "fb_dtsg": getattr(ctx, "fb_dtsg", ""),
+        "jazoest": jazoest
+    }
+    
+    for k, v in defaults.items():
+        if k not in form:
+            form[k] = v
+    return form
+
+async def get(url: str, ctx: Any, form: Optional[Dict[str, Any]] = None) -> httpx.Response:
+    headers = get_headers(url, ctx.options, ctx)
+    res = await ctx.client.get(url, params=form, headers=headers)
+    return res
+
+async def post(url: str, ctx: Any, form: Dict[str, Any]) -> httpx.Response:
+    headers = get_headers(url, ctx.options, ctx)
+    form = build_form_defaults(ctx, form)
+    
+    def to_base36(n):
+        chars = '0123456789abcdefghijklmnopqrstuvwxyz'
+        if n == 0: return '0'
+        res = ''
+        while n:
+            res = chars[n % 36] + res
+            n //= 36
+        return res
+
+    form["__req"] = to_base36(getattr(ctx, "req_counter", 0))
+    if hasattr(ctx, "req_counter"):
+        ctx.req_counter += 1
+    
+    res = await ctx.client.post(url, data=form, headers=headers)
+    return res
 
 def get_signature_id() -> str:
     return hex(random.randint(0, 2147483647))[2:]
